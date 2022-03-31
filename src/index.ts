@@ -1,1 +1,1 @@
-// Slience is golden
+// Silence is golden
