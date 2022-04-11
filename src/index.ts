@@ -14,7 +14,7 @@ type TypesToConstructors<T extends { [key: string]: Types }> = {
   [key in keyof T]: TypeToConstructor<T[key]>;
 };
 
-type ConstructorToType<T extends Constructors> = ReturnType<T['make']>;
+type ConstructorToType<T extends Constructors> = T extends Constructors<infer N> ? N : never;
 
 type TypeToConstructor<T extends Types> = T extends string
   ? typeof StringConstructor
@@ -26,8 +26,6 @@ type TypeToConstructor<T extends Types> = T extends string
 
 interface ObjectConstructor<T extends { [key: string]: Types }> extends Constructors<T> {
   name: string;
-  type: T;
-  properties: (keyof T)[];
   children: TypesToConstructors<T>;
   (values: T): T;
   new (values: T): T;
@@ -79,10 +77,17 @@ class NullConstructor {
 }
 
 const Data = function () {};
-Data.object = <D extends Record<string, Constructors> = Record<string, Constructors<unknown>>>(
+
+Data.string = () => StringConstructor;
+Data.number = () => NumberConstructor;
+Data.boolean = () => BooleanConstructor;
+Data.null = () => NullConstructor;
+Data.object = <
+  T extends ConstructorsToTypes<D>,
+  D extends Record<string, Constructors> = Record<string, Constructors>
+>(
   definitions: D = {} as D,
-): ObjectConstructor<ConstructorsToTypes<D>> => {
-  type T = ConstructorsToTypes<D>;
+): ObjectConstructor<T> => {
   const properties = Object.keys(definitions) as (keyof T)[];
   const _Class = function (this: unknown, values: T) {
     if (!(this instanceof _Class)) {
@@ -94,15 +99,9 @@ Data.object = <D extends Record<string, Constructors> = Record<string, Construct
       }
     }
   } as ObjectConstructor<T>;
-  _Class.properties = properties;
-  _Class.children = (definitions as unknown) as TypesToConstructors<ConstructorsToTypes<D>>;
+  _Class.children = (definitions as unknown) as TypesToConstructors<T>;
   return _Class;
 };
-Data.string = () => StringConstructor;
-Data.number = () => NumberConstructor;
-Data.unknown = () => UnknownConstructor;
-Data.boolean = () => BooleanConstructor;
-Data.null = () => NullConstructor;
 Data.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionValues<T>>(
   definitions: T,
 ): UnionConstructor<T, Z> => {
@@ -114,6 +113,7 @@ Data.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionVa
     },
   };
 };
+Data.unknown = () => UnknownConstructor;
 
 export const MyString = Data.string();
 
@@ -159,7 +159,6 @@ const myData = new MyClass({
 
 console.log(myData);
 console.log(JSON.stringify(myData));
-console.log(MyClass.properties);
 console.log(MyClass.children);
 
 function takeRecord(foo: MyClass) {
