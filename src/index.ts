@@ -1,4 +1,6 @@
-type Types = string | number | unknown;
+type Types = string | number | unknown | TypesObject;
+type TypesObject = { [key: string]: Types };
+
 type Constructors<T extends unknown = unknown> = {
   make(...a: unknown[]): T;
   name: string;
@@ -22,7 +24,8 @@ type TypeToConstructor<T extends Types> = T extends string
   ? typeof UnknownConstructor
   : never;
 
-interface ObjectConstructor<T extends { [key: string]: Types }> {
+interface ObjectConstructor<T extends { [key: string]: Types }> extends Constructors<T> {
+  name: string;
   type: T;
   properties: (keyof T)[];
   children: TypesToConstructors<T>;
@@ -42,41 +45,41 @@ type UnionConstructor<T extends Record<string, Constructors<unknown>>, Z extends
   make(values: Z): Z;
 };
 
-const Type = function () {};
 class StringConstructor extends String {
   [Symbol.for('nodejs.util.inspect.custom')]() {
     return this.toString();
   }
-  static make(value: string) {
+  static make(value: string): string {
     return value;
   }
 }
 
 class NumberConstructor extends Number {
-  static make(value: number) {
+  static make(value: number): number {
     return value;
   }
 }
 
 class UnknownConstructor {
-  static make(value: unknown) {
+  static make(value: unknown): unknown {
     return value;
   }
 }
 
 class BooleanConstructor extends Boolean {
-  static make(value: boolean) {
+  static make(value: boolean): boolean {
     return value;
   }
 }
 
 class NullConstructor {
-  static make() {
+  static make(): null {
     return null;
   }
 }
 
-Type.object = <D extends Record<string, Constructors> = Record<string, never>>(
+const Data = function () {};
+Data.object = <D extends Record<string, Constructors> = Record<string, Constructors<unknown>>>(
   definitions: D = {} as D,
 ): ObjectConstructor<ConstructorsToTypes<D>> => {
   type T = ConstructorsToTypes<D>;
@@ -95,12 +98,12 @@ Type.object = <D extends Record<string, Constructors> = Record<string, never>>(
   _Class.children = (definitions as unknown) as TypesToConstructors<ConstructorsToTypes<D>>;
   return _Class;
 };
-Type.string = () => StringConstructor;
-Type.number = () => NumberConstructor;
-Type.unknown = () => UnknownConstructor;
-Type.boolean = () => BooleanConstructor;
-Type.null = () => NullConstructor;
-Type.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionValues<T>>(
+Data.string = () => StringConstructor;
+Data.number = () => NumberConstructor;
+Data.unknown = () => UnknownConstructor;
+Data.boolean = () => BooleanConstructor;
+Data.null = () => NullConstructor;
+Data.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionValues<T>>(
   definitions: T,
 ): UnionConstructor<T, Z> => {
   return {
@@ -112,24 +115,30 @@ Type.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionVa
   };
 };
 
-export const MyString = Type.string();
+export const MyString = Data.string();
 
-export const MyUnion = Type.union({
-  BMW: Type.object(),
-  Ford: Type.object(),
-  Honda: Type.object(),
+export const MyUnion = Data.union({
+  BMW: Data.object(),
+  Ford: Data.object(),
+  Honda: Data.object(),
 });
 
-export class MyClass extends Type.object({
-  string: Type.string(),
-  number: Type.number(),
-  unknown: Type.unknown(),
-  boolean: Type.boolean(),
-  null: Type.null(),
-  union: Type.union({
-    option1: Type.object({ prop1: Type.string() }),
-    option2: Type.object({ prop2: Type.number() }),
-    option3: Type.boolean(),
+export class MyClass extends Data.object({
+  string: Data.string(),
+  number: Data.number(),
+  unknown: Data.unknown(),
+  boolean: Data.boolean(),
+  null: Data.null(),
+  union: Data.union({
+    option1: Data.object({ prop1: Data.string() }),
+    option2: Data.object({ prop2: Data.number() }),
+    option3: Data.boolean(),
+  }),
+  object: Data.object({
+    prop: Data.string(),
+    nestedObject: Data.object({
+      nestedProp: Data.number(),
+    }),
   }),
   otherUnion: MyUnion,
 }) {}
@@ -140,8 +149,12 @@ const myData = new MyClass({
   unknown: true,
   boolean: false,
   null: null,
-  union: { prop1: '1234' },
-  otherUnion: new MyUnion.BMW({}),
+  union: { prop1: 'hello' },
+  object: {
+    prop: '13',
+    nestedObject: { nestedProp: 2 },
+  },
+  otherUnion: MyUnion.BMW.make({}),
 });
 
 console.log(myData);
@@ -162,5 +175,9 @@ takeRecord({
   boolean: false,
   null: null,
   union: { prop1: '1234' },
-    otherUnion: new MyUnion.BMW({}),
+  object: {
+    prop: '13',
+    nestedObject: { nestedProp: 2 },
+  },
+  otherUnion: MyUnion.BMW.make({}),
 });
