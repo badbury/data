@@ -76,7 +76,7 @@ class NullConstructor {
   }
 }
 
-const Data = function () {};
+export const Data = function () {};
 
 Data.string = () => StringConstructor;
 Data.number = () => NumberConstructor;
@@ -100,6 +100,9 @@ Data.object = <
     }
   } as ObjectConstructor<T>;
   _Class.children = (definitions as unknown) as TypesToConstructors<T>;
+  _Class.make = function (values: T) {
+    return new this(values);
+  };
   return _Class;
 };
 Data.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionValues<T>>(
@@ -122,6 +125,8 @@ export const MyUnion = Data.union({
   Ford: Data.object(),
   Honda: Data.object(),
 });
+
+console.log(MyUnion.BMW);
 
 export class MyClass extends Data.object({
   string: Data.string(),
