@@ -1,93 +1,104 @@
-type Types = string | number | unknown | TypesObject;
+type Types = string | number | unknown | TypesObject | TypesArray;
 type TypesObject = { [key: string]: Types };
+type TypesArray = Types[];
 
-type Constructors<T extends unknown = unknown> = {
-  make(...a: unknown[]): T;
+type Constructor<T extends unknown = unknown> = {
+  make(t: T): T;
+  guard(subject: unknown): subject is T;
   name: string;
 };
 
-type ConstructorsToTypes<T extends { [key: string]: Constructors }> = {
+type ObjectOfConstructorsToTypes<T extends { [key: string]: Constructor }> = {
   [key in keyof T]: ConstructorToType<T[key]>;
 };
 
-type TypesToConstructors<T extends { [key: string]: Types }> = {
-  [key in keyof T]: TypeToConstructor<T[key]>;
+type ConstructorToType<T extends Constructor> = ReturnType<T['make']>;
+
+export const Data = function (): void {};
+
+export class StringConstructor extends String {
+  static make(value: string): string {
+    return value;
+  }
+  static guard(value: unknown): value is string {
+    return typeof value === 'string';
+  }
+}
+Data.string = (): Constructor<string> => StringConstructor;
+
+export class NumberConstructor extends Number {
+  static make(value: number): number {
+    return value;
+  }
+  static guard(value: unknown): value is number {
+    return typeof value === 'number';
+  }
+}
+Data.number = (): Constructor<number> => NumberConstructor;
+
+export class BooleanConstructor extends Boolean {
+  static make(value: boolean): boolean {
+    return value;
+  }
+  static guard(value: unknown): value is boolean {
+    return typeof value === 'boolean';
+  }
+}
+Data.boolean = (): Constructor<boolean> => BooleanConstructor;
+
+export class NullConstructor {
+  static make(value: null): null {
+    return value;
+  }
+  static guard(value: unknown): value is null {
+    return value === null;
+  }
+}
+Data.null = (): Constructor<null> => NullConstructor;
+
+export class UnknownConstructor {
+  static make(value: unknown): unknown {
+    return value;
+  }
+  static guard(value: unknown): value is unknown {
+    return true;
+  }
+}
+Data.unknown = (): Constructor<unknown> => UnknownConstructor;
+
+export type ArrayConstructor<D extends Constructor, T extends ConstructorToType<D>> = Constructor<
+  T[]
+> & {
+  name: 'ArrayConstructor';
+  definition: D;
 };
+Data.array = <D extends Constructor, T extends ConstructorToType<D>>(
+  definition: D,
+): ArrayConstructor<D, T> => ({
+  name: 'ArrayConstructor',
+  definition,
+  make(value: T[]): T[] {
+    return value;
+  },
+  guard(value: unknown): value is T[] {
+    return Array.isArray(value) && value.every(definition.guard);
+  },
+});
 
-type ConstructorToType<T extends Constructors> = T extends Constructors<infer N> ? N : never;
-
-type TypeToConstructor<T extends Types> = T extends string
-  ? typeof StringConstructor
-  : T extends number
-  ? typeof NumberConstructor
-  : T extends unknown
-  ? typeof UnknownConstructor
-  : never;
-
-interface ObjectConstructor<T extends { [key: string]: Types }> extends Constructors<T> {
+export interface RecordConstructor<
+  D extends Record<string, Constructor>,
+  T extends ObjectOfConstructorsToTypes<D>
+> extends Constructor<T> {
   name: string;
-  children: TypesToConstructors<T>;
+  definitions: D;
   (values: T): T;
   new (values: T): T;
   make(values: T): T;
   prototype: T;
 }
-
-type UnionValues<T> = T extends Record<string, Constructors<infer P>> ? P : never;
-
-type UnionConstructor<T extends Record<string, Constructors<unknown>>, Z extends UnionValues<T>> = {
-  [C in keyof T]: T[C];
-  // [C in T as `format${Capitalize<Key & string>}`]: C;
-} & {
-  name: 'UnionConstructor';
-  make(values: Z): Z;
-};
-
-class StringConstructor extends String {
-  [Symbol.for('nodejs.util.inspect.custom')]() {
-    return this.toString();
-  }
-  static make(value: string): string {
-    return value;
-  }
-}
-
-class NumberConstructor extends Number {
-  static make(value: number): number {
-    return value;
-  }
-}
-
-class UnknownConstructor {
-  static make(value: unknown): unknown {
-    return value;
-  }
-}
-
-class BooleanConstructor extends Boolean {
-  static make(value: boolean): boolean {
-    return value;
-  }
-}
-
-class NullConstructor {
-  static make(): null {
-    return null;
-  }
-}
-
-export const Data = function () {};
-
-Data.string = () => StringConstructor;
-Data.number = () => NumberConstructor;
-Data.boolean = () => BooleanConstructor;
-Data.null = () => NullConstructor;
-Data.object = <
-  T extends ConstructorsToTypes<D>,
-  D extends Record<string, Constructors> = Record<string, Constructors>
->(
+Data.record = <D extends Record<string, Constructor>, T extends ObjectOfConstructorsToTypes<D>>(
   definitions: D = {} as D,
-): ObjectConstructor<T> => {
+): RecordConstructor<D, T> => {
   const properties = Object.keys(definitions) as (keyof T)[];
   const _Class = function (this: unknown, values: T) {
     if (!(this instanceof _Class)) {
@@ -98,90 +109,50 @@ Data.object = <
         (this as any)[key] = values[key];
       }
     }
-  } as ObjectConstructor<T>;
-  _Class.children = (definitions as unknown) as TypesToConstructors<T>;
+  } as RecordConstructor<D, T>;
+  _Class.definitions = definitions;
   _Class.make = function (values: T) {
     return new this(values);
   };
+  _Class.guard = function (subject: unknown): subject is T {
+    if (subject === null || typeof subject !== 'object') {
+      return false;
+    }
+    for (const key of Object.keys(properties)) {
+      if (!(key in subject)) {
+        return false;
+      }
+      if (!definitions[key].guard((subject as T)[key])) {
+        return false;
+      }
+    }
+    return true;
+  };
   return _Class;
 };
-Data.union = <T extends Record<string, Constructors<unknown>>, Z extends UnionValues<T>>(
-  definitions: T,
-): UnionConstructor<T, Z> => {
-  return {
-    name: 'UnionConstructor',
-    ...definitions,
-    make(value: Z): Z {
-      return value;
-    },
-  };
+
+export type UnionConstructor<
+  D extends Constructor[],
+  T extends ConstructorToType<D[number]>
+> = Constructor<T> & {
+  name: 'UnionConstructor';
+  definitions: D;
+  make(values: T): T;
 };
-Data.unknown = () => UnknownConstructor;
-
-export const MyString = Data.string();
-
-export const MyUnion = Data.union({
-  BMW: Data.object(),
-  Ford: Data.object(),
-  Honda: Data.object(),
-});
-
-console.log(MyUnion.BMW);
-
-export class MyClass extends Data.object({
-  string: Data.string(),
-  number: Data.number(),
-  unknown: Data.unknown(),
-  boolean: Data.boolean(),
-  null: Data.null(),
-  union: Data.union({
-    option1: Data.object({ prop1: Data.string() }),
-    option2: Data.object({ prop2: Data.number() }),
-    option3: Data.boolean(),
-  }),
-  object: Data.object({
-    prop: Data.string(),
-    nestedObject: Data.object({
-      nestedProp: Data.number(),
-    }),
-  }),
-  otherUnion: MyUnion,
-}) {}
-
-const myData = new MyClass({
-  string: '123',
-  number: 123,
-  unknown: true,
-  boolean: false,
-  null: null,
-  union: { prop1: 'hello' },
-  object: {
-    prop: '13',
-    nestedObject: { nestedProp: 2 },
+Data.union = <D extends Constructor[], T extends ConstructorToType<D[number]>>(
+  definitions: D,
+): UnionConstructor<D, T> => ({
+  name: 'UnionConstructor',
+  definitions,
+  make(value: T): T {
+    for (const definition of definitions) {
+      if (definition.guard(value)) {
+        return (definition as Constructor<T>).make(value);
+      }
+    }
+    return value;
   },
-  otherUnion: MyUnion.BMW.make({}),
-});
-
-console.log(myData);
-console.log(JSON.stringify(myData));
-console.log(MyClass.children);
-
-function takeRecord(foo: MyClass) {
-  console.log(foo);
-  console.log(JSON.stringify(foo));
-}
-
-takeRecord(myData);
-takeRecord({
-  string: '123',
-  number: 123,
-  unknown: true,
-  boolean: false,
-  null: null,
-  union: { prop1: '1234' },
-  object: {
-    prop: '13',
-    nestedObject: { nestedProp: 2 },
+  guard(subject: T): subject is T {
+    return definitions.some((definition) => definition.guard(subject));
   },
-  otherUnion: MyUnion.BMW.make({}),
 });
