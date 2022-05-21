@@ -93,7 +93,6 @@ export interface RecordConstructor<
   definitions: D;
   (values: T): T;
   new (values: T): T;
-  make(values: T): T;
   prototype: T;
 }
 Data.record = <D extends Record<string, Constructor>, T extends ObjectOfConstructorsToTypes<D>>(
@@ -137,7 +136,6 @@ export type UnionConstructor<
 > = Constructor<T> & {
   name: 'UnionConstructor';
   definitions: D;
-  make(values: T): T;
 };
 Data.union = <D extends Constructor[], T extends ConstructorToType<D[number]>>(
   definitions: D,
