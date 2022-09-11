@@ -202,9 +202,9 @@ test('Data.union([RecordOne, RecordTwo]).make()', () => {
   }) {}
   const type = Data.union([RecordOne, RecordTwo]);
 
-  assert.is((type.make({ propOne: 'hi' }) as any).propOne, 'hi');
+  assert.is((type.make({ propOne: 'hi' }) as RecordOne).propOne, 'hi');
   assert.instance(type.make({ propOne: 'hi' }), RecordOne);
-  assert.is((type.make({ propTwo: 1234 }) as any).propTwo, 1234);
+  assert.is((type.make({ propTwo: 1234 }) as RecordTwo).propTwo, 1234);
   assert.instance(type.make({ propTwo: 1234 }), RecordTwo);
 
   // @ts-expect-error "Invalid make type"

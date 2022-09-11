@@ -47,7 +47,7 @@ class MatchBuilder<T, L, R> implements IncompleteMatch<T, L, R>, CompleteMatch<R
   }
   default<K>(handler: (value: Exclude<T, L>) => K) {
     const map: Map<Constructor<T>, (value: T) => R | K> = new Map(this.map);
-    map.set(unknown() as any, handler as (value: T) => R | K);
+    map.set(unknown() as Constructor<T>, handler as (value: T) => R | K);
     return new MatchBuilder(this.value, map);
   }
   run() {
