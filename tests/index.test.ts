@@ -261,15 +261,15 @@ test('match(Data.union([RecordOne, RecordTwo]))', () => {
   class RecordTwo extends Data.record({
     propTwo: Data.number(),
   }) {}
-  class RecordThree extends Data.record({
+  const RecordThree = Data.record({
     propThree: Data.array(Data.string()),
-  }) {}
+  });
   const type = Data.union([RecordOne, RecordTwo, RecordThree]);
   const instanceOne = type.make({ propOne: 'hi' });
   const instanceTwo = type.make({ propTwo: 1234 });
   const instanceThree = type.make({ propThree: ['a', 'b', 'c'] });
 
-  function getString(instance: RecordOne | RecordTwo | RecordThree) {
+  function getString(instance: RecordOne | RecordTwo | ReturnType<typeof RecordThree['make']>) {
     return match(instance)
       .with(RecordOne, (value) => value.propOne)
       .with(RecordTwo, (value) => String(value.propTwo))

@@ -9,9 +9,13 @@ type Constructor<T = unknown> = {
   name: string;
 };
 
-type ObjectOfConstructorsToTypes<T extends { [key: string]: Constructor }> = {
-  [key in keyof T]: ConstructorToType<T[key]>;
-};
+type Identity<T> = T;
+type Flatten<T extends object> = Identity<{ [k in keyof T]: T[k] }>;
+type ObjectOfConstructorsToTypes<T extends { [key: string]: Constructor }> = Flatten<
+  {
+    [key in keyof T]: ReturnType<T[key]['make']>;
+  }
+>;
 
 type ConstructorToType<T extends Constructor> = ReturnType<T['make']>;
 
