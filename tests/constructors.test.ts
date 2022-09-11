@@ -1,6 +1,6 @@
 import { test } from 'uvu';
 import assert from 'uvu/assert';
-import { Data, match } from '../src';
+import { Data } from '../src';
 
 test('Data.string().make()', () => {
   const type = Data.string();
@@ -252,38 +252,6 @@ test('Data.union([RecordOne, RecordTwo]).parse()', () => {
   assert.instance(RecordTwo.parse(instanceTwo), RecordTwo);
   assert.throws(() => RecordOne.parse(instanceTwo), /Can not parse .* into a RecordOne/);
   assert.throws(() => RecordTwo.parse(instanceOne), /Can not parse .* into a RecordTwo/);
-});
-
-test('match(Data.union([RecordOne, RecordTwo]))', () => {
-  class RecordOne extends Data.record({
-    propOne: Data.string(),
-  }) {}
-  class RecordTwo extends Data.record({
-    propTwo: Data.number(),
-  }) {}
-  const RecordThree = Data.record({
-    propThree: Data.array(Data.string()),
-  });
-  const type = Data.union([RecordOne, RecordTwo, RecordThree]);
-  const instanceOne = type.make({ propOne: 'hi' });
-  const instanceTwo = type.make({ propTwo: 1234 });
-  const instanceThree = type.make({ propThree: ['a', 'b', 'c'] });
-
-  function getString(instance: RecordOne | RecordTwo | ReturnType<typeof RecordThree['make']>) {
-    return match(instance)
-      .with(RecordOne, (value) => value.propOne)
-      .with(RecordTwo, (value) => String(value.propTwo))
-      .with(RecordThree, (value) => value.propThree.join(','))
-      .run();
-  }
-
-  assert.is(getString(instanceOne), 'hi');
-  assert.is(getString(instanceTwo), '1234');
-  assert.is(getString(instanceThree), 'a,b,c');
-
-  assert.is(getString({ propOne: 'hi' }), 'hi');
-  assert.is(getString({ propTwo: 1234 }), '1234');
-  assert.is(getString({ propThree: ['a', 'b', 'c'] }), 'a,b,c');
 });
 
 test.run();
