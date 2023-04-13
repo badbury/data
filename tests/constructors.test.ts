@@ -72,6 +72,69 @@ test('Data.null().guard()', () => {
   assert.is(type.guard('hi'), false);
 });
 
+test('Data.literal("hi").make()', () => {
+  const type = Data.literal('hi');
+
+  assert.is(type.make('hi'), 'hi');
+
+  // @ts-expect-error "Invalid make type"
+  type.make('hello');
+});
+
+test('Data.literal("hi").guard()', () => {
+  const type = Data.literal('hi');
+
+  assert.is(type.guard('hi'), true);
+
+  assert.is(type.guard('hello'), false);
+  assert.is(type.guard(1234), false);
+});
+
+test('Data.literal(NaN).make()', () => {
+  const type = Data.literal(NaN);
+
+  assert.equal(type.make(NaN), NaN);
+
+  // @ts-expect-error "Invalid make type"
+  type.make('NaN');
+});
+
+test('Data.literal(NaN).guard()', () => {
+  const type = Data.literal(NaN);
+
+  assert.is(type.guard(NaN), true);
+
+  assert.is(type.guard('hello'), false);
+  assert.is(type.guard(1234), false);
+});
+
+test('Data.literal([1, true, "three"]).make()', () => {
+  const type = Data.enum([1, true, 'three']);
+
+  assert.equal(type.make(1), 1);
+  assert.equal(type.make(true), true);
+  assert.equal(type.make('three'), 'three');
+
+  // @ts-expect-error "Invalid make type"
+  type.make('foo');
+  // @ts-expect-error "Invalid make type"
+  type.make(2);
+  // @ts-expect-error "Invalid make type"
+  type.make(false);
+});
+
+test('Data.literal([1, true, "three"]).guard()', () => {
+  const type = Data.enum([1, true, 'three']);
+
+  assert.is(type.guard(1), true);
+  assert.is(type.guard(true), true);
+  assert.is(type.guard('three'), true);
+
+  assert.is(type.guard('foo'), false);
+  assert.is(type.guard(2), false);
+  assert.is(type.guard(false), false);
+});
+
 test('Data.unknown().make()', () => {
   const type = Data.unknown();
 

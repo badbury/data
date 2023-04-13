@@ -1,4 +1,9 @@
-import { Constructor, ConstructorToType, ObjectOfConstructorsToTypes } from './interfaces';
+import {
+  Constructor,
+  ConstructorToType,
+  Identity,
+  ObjectOfConstructorsToTypes,
+} from './interfaces';
 
 export function parse<T>(value: unknown, constructor: Constructor<T>): T {
   if (typeof constructor === 'function' && value instanceof constructor) {
@@ -21,7 +26,7 @@ export class StringConstructor extends String {
     return parse(value, this);
   }
 }
-export const string = (): Constructor<string> => StringConstructor;
+export const string = (): Constructor<string> & typeof StringConstructor => StringConstructor;
 
 export class NumberConstructor extends Number {
   static make(value: number): number {
@@ -34,7 +39,7 @@ export class NumberConstructor extends Number {
     return parse(value, this);
   }
 }
-export const number = (): Constructor<number> => NumberConstructor;
+export const number = (): Constructor<number> & typeof NumberConstructor => NumberConstructor;
 
 export class BooleanConstructor extends Boolean {
   static make(value: boolean): boolean {
@@ -47,7 +52,7 @@ export class BooleanConstructor extends Boolean {
     return parse(value, this);
   }
 }
-export const boolean = (): Constructor<boolean> => BooleanConstructor;
+export const boolean = (): Constructor<boolean> & typeof BooleanConstructor => BooleanConstructor;
 
 export class NullConstructor {
   static make(value: null): null {
@@ -174,6 +179,50 @@ export const union = <D extends Constructor[], T extends ConstructorToType<D[num
   },
 });
 
+type LiteralTypes = string | number | boolean | bigint | null | undefined;
+
+export type LiteralConstructor<T extends LiteralTypes> = Constructor<T> & {
+  name: 'LiteralConstructor';
+  value: T;
+};
+export const literal = <T extends LiteralTypes>(value: T): LiteralConstructor<T> => ({
+  name: 'LiteralConstructor',
+  value,
+  make(value: Identity<T>): T {
+    return value;
+  },
+  guard(subject: T): subject is T {
+    if (typeof value === 'number' && Number.isNaN(value)) {
+      return typeof subject === 'number' && Number.isNaN(subject);
+    }
+    return value === subject;
+  },
+  parse(value: unknown): T {
+    return parse(value, this);
+  },
+});
+
+export type EnumConstructor<T extends LiteralTypes, A extends T[]> = Constructor<A[number]> & {
+  name: 'EnumConstructor';
+  values: A;
+};
+export const enums = <T extends LiteralTypes, A extends T[]>(values: A): EnumConstructor<T, A> => ({
+  name: 'EnumConstructor',
+  values,
+  make(value: Identity<A[number]>): A[number] {
+    return value;
+  },
+  guard(subject: A[number]): subject is A[number] {
+    if (typeof subject === 'number' && Number.isNaN(subject)) {
+      return values.some(Number.isNaN);
+    }
+    return values.includes(subject);
+  },
+  parse(value: unknown): A[number] {
+    return parse(value, this);
+  },
+});
+
 export const Data = {
   string,
   number,
@@ -184,6 +233,9 @@ export const Data = {
   array,
   record,
   union,
+  literal,
+  enum: enums,
+  enums,
 };
 
 export default Data;

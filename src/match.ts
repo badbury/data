@@ -1,32 +1,47 @@
 import { unknown } from './constructors';
 import { Constructor } from './interfaces';
 
-interface CompleteMatch<R> {
-  run(): R;
+interface CompleteMatch<Return> {
+  run(): Return;
 }
 
-interface IncompleteMatch<T, L, R> {
-  with<I extends T, K>(target: Constructor<I>, handler: (value: I) => K): WithReturn<T, L, I, R, K>;
+interface IncompleteMatch<Subject, Return> {
+  with<Handle extends Subject, NewReturn>(
+    target: Constructor<Handle>,
+    handler: (value: Handle) => NewReturn,
+  ): WithReturn<Subject, Handle, Return | NewReturn>;
 
-  default<K>(handler: (value: Exclude<T, L>) => K): CompleteMatch<R | K>;
+  default<NewReturn>(handler: (value: Subject) => NewReturn): CompleteMatch<Return | NewReturn>;
 }
 
-type WithReturn<T, L, I, R, K> = Exclude<T, L | I> extends never
-  ? CompleteMatch<R | K>
-  : IncompleteMatch<T, L | I, R | K>;
+type WithReturn<Subject, Handle, Return> = Exclude<Subject, Handle> extends never
+  ? CompleteMatch<Return>
+  : IncompleteMatch<Exclude<Subject, Handle>, Return>;
 
-class MatchBuilder<T, L, R> implements IncompleteMatch<T, L, R>, CompleteMatch<R> {
-  constructor(private value: T, private map: Map<Constructor<T>, (value: T) => R> = new Map()) {}
-  with<I extends T, K>(target: Constructor<I>, handler: (value: I) => K) {
-    const map: Map<Constructor<T>, (value: T) => R | K> = new Map(this.map);
-    map.set(target, handler as (value: T) => R | K);
-    return new MatchBuilder<T, L | I, R | K>(this.value, map);
+type MatchMap<Subject, Return> = Map<Constructor<Subject>, (value: unknown) => Return>;
+
+class MatchBuilder<Subject, Return>
+  implements IncompleteMatch<Subject, Return>, CompleteMatch<Return> {
+  constructor(private value: Subject, private map: MatchMap<Subject, Return> = new Map()) {}
+
+  with<Handle extends Subject, NewReturn>(
+    target: Constructor<Handle>,
+    handler: (value: Handle) => NewReturn,
+  ) {
+    const map = new Map(this.map) as MatchMap<Subject, Return | NewReturn>;
+    map.set(target, handler as (value: unknown) => Return | NewReturn);
+    return new MatchBuilder(
+      this.value as Exclude<Subject, Handle>,
+      map as MatchMap<Exclude<Subject, Handle>, Return | NewReturn>,
+    );
   }
-  default<K>(handler: (value: Exclude<T, L>) => K) {
-    const map: Map<Constructor<T>, (value: T) => R | K> = new Map(this.map);
-    map.set(unknown() as Constructor<T>, handler as (value: T) => R | K);
-    return new MatchBuilder(this.value, map);
+
+  default<NewReturn>(handler: (value: Subject) => NewReturn) {
+    const map = new Map(this.map) as MatchMap<Subject, Return | NewReturn>;
+    map.set(unknown() as Constructor<Subject>, handler as (value: unknown) => Return | NewReturn);
+    return new MatchBuilder(this.value as never, map);
   }
+
   run() {
     for (const [constructor, handler] of this.map.entries()) {
       if (constructor.guard(this.value)) {
@@ -37,6 +52,6 @@ class MatchBuilder<T, L, R> implements IncompleteMatch<T, L, R>, CompleteMatch<R
   }
 }
 
-export function match<T>(value: T): IncompleteMatch<T, never, never> {
-  return new MatchBuilder<T, never, never>(value);
+export function match<T>(value: T): IncompleteMatch<T, never> {
+  return new MatchBuilder<T, never>(value);
 }

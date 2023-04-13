@@ -1,4 +1,4 @@
-type Identity<T> = T;
+export type Identity<T> = T;
 type Flatten<T extends object> = Identity<{ [k in keyof T]: T[k] }>;
 
 export type Constructor<T = unknown> = {
