@@ -8,10 +8,12 @@ export type Constructor<T = unknown> = {
   name: string;
 };
 
-export type ObjectOfConstructorsToTypes<T extends { [key: string]: Constructor }> = Flatten<
+export type ObjectOfConstructorsToTypes<
+  T extends { [key: string]: Constructor },
+> = Flatten<
   {
-    [key in keyof T]: ReturnType<T[key]['make']>;
+    [key in keyof T]: ReturnType<T[key]["make"]>;
   }
 >;
 
-export type ConstructorToType<T extends Constructor> = ReturnType<T['make']>;
+export type ConstructorToType<T extends Constructor> = ReturnType<T["make"]>;
